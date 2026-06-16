@@ -1,27 +1,34 @@
 # qapreg
 
+------------------------------------------------------------------------
+
 `qapreg` is an R package for fitting Quadratic Assignment Procedure
 (QAP) regression models to network data.
 
-The package provides a modern formula interface for QAP analysis of
-`network` objects, allowing researchers to estimate dyadic regression
-models while accounting for the dependence structure inherent in network
-data.
+The package provides a modern formula interface for QAP analysis while
+also supporting a matrix-based workflow familiar to users of
+[`sna::netlogit()`](https://rdrr.io/pkg/sna/man/netlogit.html).
 
 ## Features
 
 - Formula-based model specification
+- netlogit-compatible matrix interface
 - Logistic QAP regression via [`qaplogit()`](reference/qaplogit.md)
 - Support for dyadic covariate matrices
-- Permutation-based significance testing
+- Permutation-based inference
+- Parallel permutation support
+- Extraction of model-based and QAP-based standard errors
 - Standard S3 methods (`print`, `summary`, `coef`, `vcov`, `confint`)
 - Integration with the `network` package
+- Comprehensive documentation and vignette
 
 ## Installation
 
-### Development version
+Install the development version from GitHub:
 
 ``` r
+
+install.packages("remotes")
 
 remotes::install_github("thomas-u-grund/qapreg")
 ```
@@ -32,13 +39,24 @@ Standard regression models assume that observations are independent.
 
 In network data, dyads share actors and are therefore statistically
 dependent. This violates conventional inference assumptions and can lead
-to misleading p-values.
+to misleading p-values and standard errors.
 
-QAP addresses this problem by repeatedly permuting node labels and
-comparing observed coefficients against the resulting reference
-distribution.
+Quadratic Assignment Procedure (QAP) regression addresses this problem
+by evaluating statistical significance through repeated node-label
+permutations.
 
-## A Simple Example
+Rather than relying on classical asymptotic assumptions, observed
+coefficients are compared to a reference distribution generated from
+randomly permuted versions of the network.
+
+## Interfaces
+
+`qapreg` supports two complementary workflows.
+
+### Formula Interface
+
+The recommended approach uses `network` objects and a familiar formula
+syntax.
 
 ``` r
 
@@ -53,23 +71,6 @@ add.edges(
   head = c(2, 3, 4, 5, 5)
 )
 
-fit <- qaplogit(
-  net = net,
-  formula = y ~ i + j,
-  reps = 100,
-  seed = 123,
-  verbose = FALSE
-)
-
-summary(fit)
-```
-
-## Dyadic Covariates
-
-Dyadic predictors can be supplied as matrices.
-
-``` r
-
 distance <- matrix(
   runif(25),
   nrow = 5,
@@ -78,7 +79,7 @@ distance <- matrix(
 
 fit <- qaplogit(
   net = net,
-  formula = y ~ i + j + distance,
+  formula = y ~ distance,
   dyadic_covariates = list(
     distance = distance
   ),
@@ -90,29 +91,143 @@ fit <- qaplogit(
 summary(fit)
 ```
 
+### netlogit-Compatible Interface
+
+Users familiar with
+[`sna::netlogit()`](https://rdrr.io/pkg/sna/man/netlogit.html) can fit
+models directly from adjacency matrices.
+
+``` r
+
+set.seed(1)
+
+x <- array(
+  rbinom(4 * 10 * 10, 1, 0.3),
+  dim = c(4, 10, 10)
+)
+
+y <- x[1, , ]
+
+fit <- qaplogit(
+  y,
+  x,
+  reps = 100,
+  seed = 123,
+  verbose = FALSE
+)
+
+summary(fit)
+```
+
+where:
+
+- `y` is the response adjacency matrix
+
+- `x` is:
+
+  - a matrix
+  - a three-dimensional array of matrices
+  - a list of matrices
+
 ## Extracting Results
+
+Standard S3 methods are available.
 
 ``` r
 
 coef(fit)
+```
+
+``` r
 
 vcov(fit)
+```
+
+``` r
 
 confint(fit)
 ```
 
+``` r
+
+summary(fit)
+```
+
+## Standard Errors
+
+`qapreg` provides access to both model-based and permutation-based
+uncertainty estimates.
+
+Model-based standard errors are obtained from the underlying logistic
+regression fit:
+
+``` r
+
+sqrt(diag(vcov(fit, type = "model")))
+```
+
+QAP permutation-based standard errors are obtained from the permutation
+distribution:
+
+``` r
+
+sqrt(diag(vcov(fit, type = "qap")))
+```
+
+The latter are generally preferred when analysing network data because
+they account for the dependence structure induced by shared actors.
+
+The [`summary()`](https://rdrr.io/r/base/summary.html) method reports
+both conventional and QAP-based inference statistics.
+
+## Parallel Permutations
+
+Large QAP analyses can be accelerated through parallel computation.
+
+``` r
+
+fit <- qaplogit(
+  net,
+  y ~ distance,
+  dyadic_covariates = list(
+    distance = distance
+  ),
+  reps = 5000,
+  parallel = TRUE,
+  ncores = 8
+)
+```
+
+## Comparison with Existing Tools
+
+| Feature               | qapreg | sna::netlogit |
+|-----------------------|--------|---------------|
+| Formula interface     | ✓      | Limited       |
+| Matrix interface      | ✓      | ✓             |
+| Model SE extraction   | ✓      | Limited       |
+| QAP SE extraction     | ✓      | Limited       |
+| Confidence intervals  | ✓      | ✗             |
+| Parallel permutations | ✓      | ✗             |
+| S3 methods            | ✓      | Limited       |
+| Vignettes             | ✓      | Limited       |
+
 ## Documentation
 
-A full introduction is available in the package vignette:
+A package vignette is available:
 
 ``` r
 
 browseVignettes("qapreg")
 ```
 
-## Citation
+## References
 
-If you use `qapreg` in published work, please cite the package.
+Krackhardt, D. (1988). Predicting with networks: Nonparametric multiple
+regression analysis of dyadic data. *Social Networks*, 10(4), 359–381.
+
+Dekker, D., Krackhardt, D., & Snijders, T. A. B. (2007). Sensitivity of
+MRQAP tests to collinearity and autocorrelation conditions.
+*Psychometrika*, 72(4), 563–581.
 
 ## License
 
