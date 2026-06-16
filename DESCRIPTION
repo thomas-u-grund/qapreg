@@ -1,0 +1,19 @@
+Package: qapreg
+Title: QAP Regression for Network Objects
+Version: 0.0.1
+Authors@R: person("Thomas", "Grund", email = "your.email@example.com", role = c("aut", "cre"))
+Description: Provides tools for fitting quadratic assignment procedure regression models to network objects.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Imports:
+    network,
+    stats
+Suggests:
+    knitr,
+    rmarkdown,
+    sna,
+    testthat (>= 3.0.0)
+Config/roxygen2/version: 8.0.0
+Config/testthat/edition: 3
+VignetteBuilder: knitr
