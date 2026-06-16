@@ -1,55 +1,112 @@
----
-output: github_document
----
-
-<!-- README.md is generated from README.Rmd. Please edit that file -->
-
-```{r, include = FALSE}
-knitr::opts_chunk$set(
-  collapse = TRUE,
-  comment = "#>",
-  fig.path = "man/figures/README-",
-  out.width = "100%"
-)
-```
-
 # qapreg
 
 <!-- badges: start -->
-[![R-CMD-check](https://github.com/thomas-u-grund/qapreg/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/thomas-u-grund/qapreg/actions/workflows/R-CMD-check.yaml)
+
+<!-- Add GitHub Actions and pkgdown badges later -->
+
 <!-- badges: end -->
 
-The goal of qapreg is to ...
+`qapreg` is an R package for fitting Quadratic Assignment Procedure (QAP) regression models to network data.
+
+The package provides a modern formula interface for QAP analysis of `network` objects, allowing researchers to estimate dyadic regression models while accounting for the dependence structure inherent in network data.
+
+## Features
+
+* Formula-based model specification
+* Logistic QAP regression via `qaplogit()`
+* Support for dyadic covariate matrices
+* Permutation-based significance testing
+* Standard S3 methods (`print`, `summary`, `coef`, `vcov`, `confint`)
+* Integration with the `network` package
 
 ## Installation
 
-You can install the development version of qapreg like so:
+### Development version
 
-``` r
-# FILL THIS IN! HOW CAN PEOPLE INSTALL YOUR DEV PACKAGE?
+```r
+remotes::install_github("thomas-u-grund/qapreg")
 ```
 
-## Example
+## Why QAP?
 
-This is a basic example which shows you how to solve a common problem:
+Standard regression models assume that observations are independent.
 
-```{r example}
+In network data, dyads share actors and are therefore statistically dependent. This violates conventional inference assumptions and can lead to misleading p-values.
+
+QAP addresses this problem by repeatedly permuting node labels and comparing observed coefficients against the resulting reference distribution.
+
+## A Simple Example
+
+```r
 library(qapreg)
-## basic example code
+library(network)
+
+net <- network.initialize(5, directed = TRUE)
+
+add.edges(
+  net,
+  tail = c(1, 1, 2, 3, 4),
+  head = c(2, 3, 4, 5, 5)
+)
+
+fit <- qaplogit(
+  net = net,
+  formula = y ~ i + j,
+  reps = 100,
+  seed = 123,
+  verbose = FALSE
+)
+
+summary(fit)
 ```
 
-What is special about using `README.Rmd` instead of just `README.md`? You can include R chunks like so:
+## Dyadic Covariates
 
-```{r cars}
-summary(cars)
+Dyadic predictors can be supplied as matrices.
+
+```r
+distance <- matrix(
+  runif(25),
+  nrow = 5,
+  ncol = 5
+)
+
+fit <- qaplogit(
+  net = net,
+  formula = y ~ i + j + distance,
+  dyadic_covariates = list(
+    distance = distance
+  ),
+  reps = 100,
+  seed = 123,
+  verbose = FALSE
+)
+
+summary(fit)
 ```
 
-You'll still need to render `README.Rmd` regularly, to keep `README.md` up-to-date. `devtools::build_readme()` is handy for this.
+## Extracting Results
 
-You can also embed plots, for example:
+```r
+coef(fit)
 
-```{r pressure, echo = FALSE}
-plot(pressure)
+vcov(fit)
+
+confint(fit)
 ```
 
-In that case, don't forget to commit and push the resulting figure files, so they display on GitHub and CRAN.
+## Documentation
+
+A full introduction is available in the package vignette:
+
+```r
+browseVignettes("qapreg")
+```
+
+## Citation
+
+If you use `qapreg` in published work, please cite the package.
+
+## License
+
+MIT License.
