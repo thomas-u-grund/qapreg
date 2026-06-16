@@ -17,7 +17,9 @@ qapreg(
   seed = NULL,
   save_permutations = TRUE,
   save_permutation_ses = TRUE,
-  verbose = TRUE
+  verbose = TRUE,
+  parallel = FALSE,
+  ncores = max(1, parallel::detectCores() - 1)
 )
 }
 \arguments{
@@ -56,6 +58,10 @@ errors from each permutation in the returned object.}
 
 \item{verbose}{Logical; if \code{TRUE}, print progress messages during
 permutations.}
+
+\item{parallel}{Logical; whether to run permutations in parallel.}
+
+\item{ncores}{Number of CPU cores to use when \code{parallel = TRUE}.}
 }
 \value{
 An object of class \code{"qapreg"}, a list containing observed

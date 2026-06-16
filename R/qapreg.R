@@ -34,6 +34,38 @@ NULL
 }
 
 
+.qap_x_to_covariates <- function(x) {
+  if (is.null(x)) {
+    return(NULL)
+  }
+
+  if (is.matrix(x)) {
+    return(list(x1 = x))
+  }
+
+  if (is.array(x) && length(dim(x)) == 3) {
+    out <- vector("list", dim(x)[1])
+
+    for (k in seq_len(dim(x)[1])) {
+      out[[k]] <- x[k, , ]
+    }
+
+    names(out) <- paste0("x", seq_along(out))
+    return(out)
+  }
+
+  if (is.list(x)) {
+    if (is.null(names(x))) {
+      names(x) <- paste0("x", seq_along(x))
+    }
+
+    return(x)
+  }
+
+  stop("x must be a matrix, a 3-dimensional array, or a list of matrices.",
+       call. = FALSE)
+}
+
 #' Extract an adjacency matrix from a network object
 #'
 #' Converts a \pkg{network} object to an adjacency matrix, attempting to retain
@@ -434,6 +466,8 @@ qap_dyads <- function(net,
 #'   errors from each permutation in the returned object.
 #' @param verbose Logical; if `TRUE`, print progress messages during
 #'   permutations.
+#' @param parallel Logical; whether to run permutations in parallel.
+#' @param ncores Number of CPU cores to use when `parallel = TRUE`.
 #'
 #' @return An object of class `"qapreg"`, a list containing observed
 #'   coefficients, model-based standard errors, QAP standard errors,
@@ -476,7 +510,9 @@ qapreg <- function(net,
                    seed = NULL,
                    save_permutations = TRUE,
                    save_permutation_ses = TRUE,
-                   verbose = TRUE) {
+                   verbose = TRUE,
+                   parallel = FALSE,
+                   ncores = max(1, parallel::detectCores() - 1)) {
   .qap_require_network()
 
   missing_dyads <- match.arg(missing_dyads)
@@ -524,7 +560,7 @@ qapreg <- function(net,
 
   failed <- logical(reps)
 
-  for (r in seq_len(reps)) {
+  run_one_permutation <- function(r) {
     p <- sample(seq_len(n))
 
     yperm <- ymat[p, p]
@@ -554,19 +590,61 @@ qapreg <- function(net,
     )
 
     if (inherits(fit_perm, "try-error")) {
-      failed[r] <- TRUE
-    } else {
-      cf <- stats::coef(fit_perm)
-      se <- .qap_model_se(fit_perm, names(cf))
-
-      perm_coefs[r, names(cf)] <- cf
-      perm_ses[r, names(se)] <- se
+      return(list(
+        coef = rep(NA_real_, length(terms)),
+        se = rep(NA_real_, length(terms)),
+        failed = TRUE
+      ))
     }
 
-    if (verbose && r %% max(1, floor(reps / 10)) == 0) {
-      message("Permutation ", r, " / ", reps)
+    cf <- stats::coef(fit_perm)
+    se <- .qap_model_se(fit_perm, names(cf))
+
+    coef_out <- rep(NA_real_, length(terms))
+    se_out <- rep(NA_real_, length(terms))
+
+    names(coef_out) <- terms
+    names(se_out) <- terms
+
+    coef_out[names(cf)] <- cf
+    se_out[names(se)] <- se
+
+    list(
+      coef = coef_out,
+      se = se_out,
+      failed = FALSE
+    )
+  }
+
+  if (parallel) {
+    if (!is.null(seed)) {
+      RNGkind("L'Ecuyer-CMRG")
+      set.seed(seed)
+    }
+
+    results <- parallel::mclapply(
+      seq_len(reps),
+      run_one_permutation,
+      mc.cores = ncores
+    )
+  } else {
+    results <- vector("list", reps)
+
+    for (r in seq_len(reps)) {
+      results[[r]] <- run_one_permutation(r)
+
+      if (verbose && r %% max(1, floor(reps / 10)) == 0) {
+        message("Permutation ", r, " / ", reps)
+      }
     }
   }
+
+  perm_coefs <- do.call(rbind, lapply(results, `[[`, "coef"))
+  perm_ses <- do.call(rbind, lapply(results, `[[`, "se"))
+  failed <- vapply(results, `[[`, logical(1), "failed")
+
+  colnames(perm_coefs) <- terms
+  colnames(perm_ses) <- terms
 
   qap_p_less <- sapply(terms, function(t) {
     .qap_p_value(perm_coefs[, t], obs_coef[t], alternative = "less")
@@ -619,35 +697,39 @@ qapreg <- function(net,
   out
 }
 
-
-# ------------------------------------------------------------
-# Logistic wrapper
-# ------------------------------------------------------------
-
-#' Logistic QAP regression
+#' Logistic QAP Regression
 #'
-#' Convenience wrapper around [qapreg()] for logistic regression with a binomial
-#' link using [stats::glm()].
+#' Fits a logistic QAP regression model. The function supports both the
+#' package's formula interface and a `netlogit`-style matrix interface.
 #'
-#' @inheritParams qapreg
-#' @param ... Additional arguments passed to [stats::glm()] through `fit_args`,
-#'   such as `control = glm.control(maxit = 100)`.
+#' @param net A `network` object, or a response adjacency matrix when using
+#'   the `netlogit`-style interface.
+#' @param formula A model formula, or a matrix/array/list of predictors when
+#'   using the `netlogit`-style interface.
+#' @param reps Number of QAP permutations.
+#' @param directed Logical; whether the network is directed.
+#' @param dyadic_covariates Optional named list of dyadic covariate matrices.
+#' @param missing_dyads Handling of missing dyads: `"omit"`, `"fail"`, or `"zero"`.
+#' @param na_action Handling of missing model values: `"omit"`, `"fail"`, or `"pass"`.
+#' @param seed Optional random seed.
+#' @param save_permutations Logical; store permuted coefficients.
+#' @param save_permutation_ses Logical; store permuted standard errors.
+#' @param verbose Logical; print progress messages.
+#' @param intercept Logical; include intercept in `netlogit`-style models.
+#' @param mode Character; `"digraph"` for directed networks or `"graph"` for
+#'   undirected networks.
+#' @param diag Logical; currently accepted for compatibility. Diagonal dyads
+#'   are not modelled by `qapreg`.
+#' @param nullhyp Character; currently `"qap"` and `"qapy"` use QAP-style
+#'   response-network permutations. `"classical"` fits the observed logistic
+#'   regression without interpreting QAP p-values.
+#' @param test.statistic Character; accepted for compatibility. Current QAP
+#'   p-values are based on coefficients.
+#' @param tol Tolerance passed to `glm.control()`.
+#' @param ... Additional arguments passed to `glm()`.
 #'
 #' @return An object of class `"qapreg"`.
 #'
-#' @examples
-#' \dontrun{
-#' library(network)
-#'
-#' mat <- matrix(rbinom(100, 1, 0.2), 10, 10)
-#' diag(mat) <- 0
-#' net <- network::network(mat, directed = TRUE)
-#'
-#' fit <- qaplogit(net, y ~ i + j, reps = 50, verbose = FALSE)
-#' summary(fit)
-#' }
-#'
-#' @seealso [qapreg()]
 #' @export
 qaplogit <- function(net,
                      formula,
@@ -660,13 +742,81 @@ qaplogit <- function(net,
                      save_permutations = TRUE,
                      save_permutation_ses = TRUE,
                      verbose = TRUE,
+                     intercept = TRUE,
+                     mode = c("digraph", "graph"),
+                     diag = FALSE,
+                     nullhyp = c("qap", "qapy", "classical"),
+                     test.statistic = c("beta", "z-value"),
+                     tol = 1e-7,
                      ...) {
+
+  mode <- match.arg(mode)
+  nullhyp <- match.arg(nullhyp)
+  test.statistic <- match.arg(test.statistic)
+
+  if (isTRUE(diag)) {
+    warning(
+      "diag = TRUE is accepted for netlogit compatibility, ",
+      "but qapreg currently excludes diagonal dyads.",
+      call. = FALSE
+    )
+  }
+
+  if (!nullhyp %in% c("qap", "qapy", "classical")) {
+    stop(
+      "Only nullhyp = 'qap', 'qapy', and 'classical' are currently supported.",
+      call. = FALSE
+    )
+  }
+
+  netlogit_style <- is.matrix(net) &&
+    !inherits(formula, "formula")
+
+  if (netlogit_style) {
+    y <- net
+    x <- formula
+
+    directed <- if (is.null(directed)) {
+      mode == "digraph"
+    } else {
+      directed
+    }
+
+    covs <- .qap_x_to_covariates(x)
+
+    net <- network::network(
+      y,
+      directed = directed,
+      loops = FALSE,
+      matrix.type = "adjacency",
+      ignore.eval = FALSE,
+      names.eval = "weight"
+    )
+
+    dyadic_covariates <- covs
+
+    rhs <- if (is.null(covs) || length(covs) == 0) {
+      if (intercept) "1" else "0"
+    } else {
+      paste(names(covs), collapse = " + ")
+    }
+
+    if (!intercept && rhs != "0") {
+      rhs <- paste("0 +", rhs)
+    }
+
+    formula <- stats::as.formula(paste("y ~", rhs))
+  }
+
   fit_args <- c(
-    list(family = stats::binomial()),
+    list(
+      family = stats::binomial(),
+      control = stats::glm.control(epsilon = tol)
+    ),
     list(...)
   )
 
-  qapreg(
+  out <- qapreg(
     net = net,
     formula = formula,
     reps = reps,
@@ -681,6 +831,14 @@ qaplogit <- function(net,
     save_permutation_ses = save_permutation_ses,
     verbose = verbose
   )
+
+  out$mode <- mode
+  out$diag <- diag
+  out$nullhyp <- nullhyp
+  out$test.statistic <- test.statistic
+  out$intercept <- intercept
+
+  out
 }
 
 

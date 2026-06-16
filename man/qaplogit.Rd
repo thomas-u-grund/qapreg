@@ -2,7 +2,7 @@
 % Please edit documentation in R/qapreg.R
 \name{qaplogit}
 \alias{qaplogit}
-\title{Logistic QAP regression}
+\title{Logistic QAP Regression}
 \usage{
 qaplogit(
   net,
@@ -16,65 +16,63 @@ qaplogit(
   save_permutations = TRUE,
   save_permutation_ses = TRUE,
   verbose = TRUE,
+  intercept = TRUE,
+  mode = c("digraph", "graph"),
+  diag = FALSE,
+  nullhyp = c("qap", "qapy", "classical"),
+  test.statistic = c("beta", "z-value"),
+  tol = 1e-07,
   ...
 )
 }
 \arguments{
-\item{net}{A \pkg{network} object.}
+\item{net}{A \code{network} object, or a response adjacency matrix when using
+the \code{netlogit}-style interface.}
 
-\item{formula}{A model formula. The response should usually be \code{y}, the
-internally generated dyadic outcome. Predictors may include vertex
-attributes with \verb{_i} and \verb{_j} suffixes, edge attributes, and supplied dyadic
-covariates.}
+\item{formula}{A model formula, or a matrix/array/list of predictors when
+using the \code{netlogit}-style interface.}
 
 \item{reps}{Number of QAP permutations.}
 
-\item{directed}{Logical; whether to treat the network as directed. If \code{NULL},
-the directedness is taken from \code{net} using \code{\link[network:is.directed]{network::is.directed()}}.}
+\item{directed}{Logical; whether the network is directed.}
 
-\item{dyadic_covariates}{Optional named list of dyadic covariate matrices.
-Each matrix must have dimensions \code{n} by \code{n}.}
+\item{dyadic_covariates}{Optional named list of dyadic covariate matrices.}
 
-\item{missing_dyads}{Character string specifying how missing outcome dyads are
-handled. One of \code{"omit"}, \code{"fail"}, or \code{"zero"}.}
+\item{missing_dyads}{Handling of missing dyads: \code{"omit"}, \code{"fail"}, or \code{"zero"}.}
 
-\item{na_action}{Character string specifying how missing values in model
-variables are handled. One of \code{"omit"}, \code{"fail"}, or \code{"pass"}.}
+\item{na_action}{Handling of missing model values: \code{"omit"}, \code{"fail"}, or \code{"pass"}.}
 
-\item{seed}{Optional random seed used before generating permutations.}
+\item{seed}{Optional random seed.}
 
-\item{save_permutations}{Logical; if \code{TRUE}, store permuted coefficient
-estimates in the returned object.}
+\item{save_permutations}{Logical; store permuted coefficients.}
 
-\item{save_permutation_ses}{Logical; if \code{TRUE}, store model-based standard
-errors from each permutation in the returned object.}
+\item{save_permutation_ses}{Logical; store permuted standard errors.}
 
-\item{verbose}{Logical; if \code{TRUE}, print progress messages during
-permutations.}
+\item{verbose}{Logical; print progress messages.}
 
-\item{...}{Additional arguments passed to \code{\link[stats:glm]{stats::glm()}} through \code{fit_args},
-such as \code{control = glm.control(maxit = 100)}.}
+\item{intercept}{Logical; include intercept in \code{netlogit}-style models.}
+
+\item{mode}{Character; \code{"digraph"} for directed networks or \code{"graph"} for
+undirected networks.}
+
+\item{diag}{Logical; currently accepted for compatibility. Diagonal dyads
+are not modelled by \code{qapreg}.}
+
+\item{nullhyp}{Character; currently \code{"qap"} and \code{"qapy"} use QAP-style
+response-network permutations. \code{"classical"} fits the observed logistic
+regression without interpreting QAP p-values.}
+
+\item{test.statistic}{Character; accepted for compatibility. Current QAP
+p-values are based on coefficients.}
+
+\item{tol}{Tolerance passed to \code{glm.control()}.}
+
+\item{...}{Additional arguments passed to \code{glm()}.}
 }
 \value{
 An object of class \code{"qapreg"}.
 }
 \description{
-Convenience wrapper around \code{\link[=qapreg]{qapreg()}} for logistic regression with a binomial
-link using \code{\link[stats:glm]{stats::glm()}}.
-}
-\examples{
-\dontrun{
-library(network)
-
-mat <- matrix(rbinom(100, 1, 0.2), 10, 10)
-diag(mat) <- 0
-net <- network::network(mat, directed = TRUE)
-
-fit <- qaplogit(net, y ~ i + j, reps = 50, verbose = FALSE)
-summary(fit)
-}
-
-}
-\seealso{
-\code{\link[=qapreg]{qapreg()}}
+Fits a logistic QAP regression model. The function supports both the
+package's formula interface and a \code{netlogit}-style matrix interface.
 }
