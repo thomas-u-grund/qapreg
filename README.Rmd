@@ -6,6 +6,8 @@
 
 <!-- GitHub Actions badge will appear here -->
 
+[![R-CMD-check](https://github.com/thomas-u-grund/qapreg/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/thomas-u-grund/qapreg/actions/workflows/R-CMD-check.yaml)
+
 <!-- badges: end -->
 
 `qapreg` is an R package for fitting Quadratic Assignment Procedure (QAP) regression models to network data.
