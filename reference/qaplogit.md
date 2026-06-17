@@ -14,6 +14,7 @@ qaplogit(
   dyadic_covariates = NULL,
   missing_dyads = c("omit", "fail", "zero"),
   na_action = c("omit", "fail", "pass"),
+  permutation_missing = c("fixed", "dynamic"),
   seed = NULL,
   save_permutations = TRUE,
   save_permutation_ses = TRUE,
@@ -59,6 +60,12 @@ qaplogit(
 - na_action:
 
   Handling of missing model values: `"omit"`, `"fail"`, or `"pass"`.
+
+- permutation_missing:
+
+  Character string specifying whether missingness is handled using a
+  fixed dyad set across permutations or dynamically inside each
+  permutation. See [`qapreg()`](qapreg.md).
 
 - seed:
 

@@ -53,6 +53,7 @@ package's formula interface and a <code>netlogit</code>-style matrix interface.<
 <span>  dyadic_covariates <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  missing_dyads <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"omit"</span>, <span class="st">"fail"</span>, <span class="st">"zero"</span><span class="op">)</span>,</span>
 <span>  na_action <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"omit"</span>, <span class="st">"fail"</span>, <span class="st">"pass"</span><span class="op">)</span>,</span>
+<span>  permutation_missing <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fixed"</span>, <span class="st">"dynamic"</span><span class="op">)</span>,</span>
 <span>  seed <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  save_permutations <span class="op">=</span> <span class="cn">TRUE</span>,</span>
 <span>  save_permutation_ses <span class="op">=</span> <span class="cn">TRUE</span>,</span>
@@ -99,6 +100,12 @@ using the <code>netlogit</code>-style interface.</p></dd>
 
 <dt id="arg-na-action">na_action<a class="anchor" aria-label="anchor" href="#arg-na-action"></a></dt>
 <dd><p>Handling of missing model values: <code>"omit"</code>, <code>"fail"</code>, or <code>"pass"</code>.</p></dd>
+
+
+<dt id="arg-permutation-missing">permutation_missing<a class="anchor" aria-label="anchor" href="#arg-permutation-missing"></a></dt>
+<dd><p>Character string specifying whether missingness is
+handled using a fixed dyad set across permutations or dynamically inside
+each permutation. See <code><a href="qapreg.html">qapreg()</a></code>.</p></dd>
 
 
 <dt id="arg-seed">seed<a class="anchor" aria-label="anchor" href="#arg-seed"></a></dt>

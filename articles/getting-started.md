@@ -91,6 +91,7 @@ summary(fit)
 #>   Directed: TRUE
 #>   Missing dyads: omit
 #>   Missing model values: omit
+#>   Permutation missingness: fixed
 #>   Failed repetitions: 0
 #> 
 #> Permutation covariance matrix:
@@ -185,6 +186,7 @@ summary(fit2)
 #>   Directed: TRUE
 #>   Missing dyads: omit
 #>   Missing model values: omit
+#>   Permutation missingness: fixed
 #>   Failed repetitions: 0
 #> 
 #> Permutation covariance matrix:

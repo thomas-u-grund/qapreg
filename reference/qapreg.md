@@ -15,6 +15,7 @@ qapreg(
   dyadic_covariates = NULL,
   missing_dyads = c("omit", "fail", "zero"),
   na_action = c("omit", "fail", "pass"),
+  permutation_missing = c("fixed", "dynamic"),
   fit_fun = stats::glm,
   fit_args = list(family = stats::binomial()),
   seed = NULL,
@@ -63,6 +64,17 @@ qapreg(
 
   Character string specifying how missing values in model variables are
   handled. One of `"omit"`, `"fail"`, or `"pass"`.
+
+- permutation_missing:
+
+  Character string specifying whether the model uses a fixed dyad set
+  across permutations or dynamically re-applies missingness handling in
+  each permutation. `"fixed"` is the default and mirrors
+  [`sna::netlogit()`](https://rdrr.io/pkg/sna/man/netlogit.html) more
+  closely: the dyads used in the observed model are kept fixed and only
+  the outcome network is permuted. `"dynamic"` re-applies
+  missing-outcome and missing-covariate handling inside each
+  permutation.
 
 - fit_fun:
 
@@ -119,6 +131,12 @@ provided the fitted model supports
 [`stats::coef()`](https://rdrr.io/r/stats/coef.html) and, ideally,
 [`stats::vcov()`](https://rdrr.io/r/stats/vcov.html).
 
+By default, `permutation_missing = "fixed"` keeps the analysis dyad set
+fixed across all permutations. This is recommended for comparability
+with [`sna::netlogit()`](https://rdrr.io/pkg/sna/man/netlogit.html) and
+for stable permutation-based standard errors. The older behaviour can be
+recovered with `permutation_missing = "dynamic"`.
+
 ## See also
 
 [`qaplogit()`](qaplogit.md), [`qap_dyads()`](qap_dyads.md),
@@ -134,7 +152,13 @@ mat <- matrix(rbinom(100, 1, 0.2), 10, 10)
 diag(mat) <- 0
 net <- network::network(mat, directed = TRUE)
 
-fit <- qapreg(net, y ~ i + j, reps = 50, verbose = FALSE)
+fit <- qapreg(
+  net,
+  y ~ i + j,
+  reps = 50,
+  permutation_missing = "fixed",
+  verbose = FALSE
+)
 print(fit)
 } # }
 ```
