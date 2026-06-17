@@ -12,6 +12,7 @@ qaplogit(
   dyadic_covariates = NULL,
   missing_dyads = c("omit", "fail", "zero"),
   na_action = c("omit", "fail", "pass"),
+  permutation_missing = c("fixed", "dynamic"),
   seed = NULL,
   save_permutations = TRUE,
   save_permutation_ses = TRUE,
@@ -41,6 +42,10 @@ using the \code{netlogit}-style interface.}
 \item{missing_dyads}{Handling of missing dyads: \code{"omit"}, \code{"fail"}, or \code{"zero"}.}
 
 \item{na_action}{Handling of missing model values: \code{"omit"}, \code{"fail"}, or \code{"pass"}.}
+
+\item{permutation_missing}{Character string specifying whether missingness is
+handled using a fixed dyad set across permutations or dynamically inside
+each permutation. See \code{\link[=qapreg]{qapreg()}}.}
 
 \item{seed}{Optional random seed.}
 

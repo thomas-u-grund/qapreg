@@ -457,6 +457,12 @@ qap_dyads <- function(net,
 #'   handled. One of `"omit"`, `"fail"`, or `"zero"`.
 #' @param na_action Character string specifying how missing values in model
 #'   variables are handled. One of `"omit"`, `"fail"`, or `"pass"`.
+#' @param permutation_missing Character string specifying whether the model uses
+#'   a fixed dyad set across permutations or dynamically re-applies missingness
+#'   handling in each permutation. `"fixed"` is the default and mirrors
+#'   `sna::netlogit()` more closely: the dyads used in the observed model are
+#'   kept fixed and only the outcome network is permuted. `"dynamic"` re-applies
+#'   missing-outcome and missing-covariate handling inside each permutation.
 #' @param fit_fun Model-fitting function. Defaults to [stats::glm()].
 #' @param fit_args Named list of additional arguments passed to `fit_fun`.
 #' @param seed Optional random seed used before generating permutations.
@@ -483,6 +489,11 @@ qap_dyads <- function(net,
 #' users can fit models other than logistic regression, provided the fitted model
 #' supports [stats::coef()] and, ideally, [stats::vcov()].
 #'
+#' By default, `permutation_missing = "fixed"` keeps the analysis dyad set fixed
+#' across all permutations. This is recommended for comparability with
+#' `sna::netlogit()` and for stable permutation-based standard errors. The older
+#' behaviour can be recovered with `permutation_missing = "dynamic"`.
+#'
 #' @examples
 #' \dontrun{
 #' library(network)
@@ -491,10 +502,15 @@ qap_dyads <- function(net,
 #' diag(mat) <- 0
 #' net <- network::network(mat, directed = TRUE)
 #'
-#' fit <- qapreg(net, y ~ i + j, reps = 50, verbose = FALSE)
+#' fit <- qapreg(
+#'   net,
+#'   y ~ i + j,
+#'   reps = 50,
+#'   permutation_missing = "fixed",
+#'   verbose = FALSE
+#' )
 #' print(fit)
 #' }
-#'
 #' @seealso [qaplogit()], [qap_dyads()], [compare_netlogit()]
 #' @export
 #' @importFrom stats coef confint model.frame model.matrix qnorm terms vcov complete.cases na.pass delete.response sd cov glm binomial glm.control
@@ -505,6 +521,7 @@ qapreg <- function(net,
                    dyadic_covariates = NULL,
                    missing_dyads = c("omit", "fail", "zero"),
                    na_action = c("omit", "fail", "pass"),
+                   permutation_missing = c("fixed", "dynamic"),
                    fit_fun = stats::glm,
                    fit_args = list(family = stats::binomial()),
                    seed = NULL,
@@ -517,6 +534,7 @@ qapreg <- function(net,
 
   missing_dyads <- match.arg(missing_dyads)
   na_action <- match.arg(na_action)
+  permutation_missing <- match.arg(permutation_missing)
 
   if (!is.null(seed)) {
     set.seed(seed)
@@ -568,16 +586,18 @@ qapreg <- function(net,
     dat_perm <- dat
     dat_perm$y <- yperm[cbind(dyads$i, dyads$j)]
 
-    if (missing_dyads == "omit") {
+    if (permutation_missing == "dynamic" && missing_dyads == "omit") {
       keep <- !is.na(dat_perm$y)
       dat_perm <- dat_perm[keep, , drop = FALSE]
     }
 
-    dat_perm <- .qap_handle_missing(
-      dat = dat_perm,
-      formula = formula,
-      na_action = na_action
-    )
+    if (permutation_missing == "dynamic") {
+      dat_perm <- .qap_handle_missing(
+        dat = dat_perm,
+        formula = formula,
+        na_action = na_action
+      )
+    }
 
     fit_perm <- try(
       .qap_fit(
@@ -672,6 +692,7 @@ qapreg <- function(net,
     reps = reps,
     failed_reps = sum(failed),
     missing_dyads = missing_dyads,
+    permutation_missing = permutation_missing,
     na_action = na_action,
     coefficients = obs_coef,
     model_standard_errors = obs_se,
@@ -711,6 +732,9 @@ qapreg <- function(net,
 #' @param dyadic_covariates Optional named list of dyadic covariate matrices.
 #' @param missing_dyads Handling of missing dyads: `"omit"`, `"fail"`, or `"zero"`.
 #' @param na_action Handling of missing model values: `"omit"`, `"fail"`, or `"pass"`.
+#' @param permutation_missing Character string specifying whether missingness is
+#'   handled using a fixed dyad set across permutations or dynamically inside
+#'   each permutation. See [qapreg()].
 #' @param seed Optional random seed.
 #' @param save_permutations Logical; store permuted coefficients.
 #' @param save_permutation_ses Logical; store permuted standard errors.
@@ -738,6 +762,7 @@ qaplogit <- function(net,
                      dyadic_covariates = NULL,
                      missing_dyads = c("omit", "fail", "zero"),
                      na_action = c("omit", "fail", "pass"),
+                     permutation_missing = c("fixed", "dynamic"),
                      seed = NULL,
                      save_permutations = TRUE,
                      save_permutation_ses = TRUE,
@@ -753,6 +778,7 @@ qaplogit <- function(net,
   mode <- match.arg(mode)
   nullhyp <- match.arg(nullhyp)
   test.statistic <- match.arg(test.statistic)
+  permutation_missing <- match.arg(permutation_missing)
 
   if (isTRUE(diag)) {
     warning(
@@ -824,6 +850,7 @@ qaplogit <- function(net,
     dyadic_covariates = dyadic_covariates,
     missing_dyads = missing_dyads,
     na_action = na_action,
+    permutation_missing = permutation_missing,
     fit_fun = stats::glm,
     fit_args = fit_args,
     seed = seed,
@@ -1129,6 +1156,7 @@ summary.qapreg <- function(object, digits = 4, ...) {
   cat("  Directed: ", object$directed, "\n", sep = "")
   cat("  Missing dyads: ", object$missing_dyads, "\n", sep = "")
   cat("  Missing model values: ", object$na_action, "\n", sep = "")
+  cat("  Permutation missingness: ", object$permutation_missing, "\n", sep = "")
   cat("  Failed repetitions: ", object$failed_reps, "\n", sep = "")
 
   cat("\nPermutation covariance matrix:\n")

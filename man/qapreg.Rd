@@ -12,6 +12,7 @@ qapreg(
   dyadic_covariates = NULL,
   missing_dyads = c("omit", "fail", "zero"),
   na_action = c("omit", "fail", "pass"),
+  permutation_missing = c("fixed", "dynamic"),
   fit_fun = stats::glm,
   fit_args = list(family = stats::binomial()),
   seed = NULL,
@@ -43,6 +44,13 @@ handled. One of \code{"omit"}, \code{"fail"}, or \code{"zero"}.}
 
 \item{na_action}{Character string specifying how missing values in model
 variables are handled. One of \code{"omit"}, \code{"fail"}, or \code{"pass"}.}
+
+\item{permutation_missing}{Character string specifying whether the model uses
+a fixed dyad set across permutations or dynamically re-applies missingness
+handling in each permutation. \code{"fixed"} is the default and mirrors
+\code{sna::netlogit()} more closely: the dyads used in the observed model are
+kept fixed and only the outcome network is permuted. \code{"dynamic"} re-applies
+missing-outcome and missing-covariate handling inside each permutation.}
 
 \item{fit_fun}{Model-fitting function. Defaults to \code{\link[stats:glm]{stats::glm()}}.}
 
@@ -82,6 +90,11 @@ from the empirical permutation distribution using a plus-one correction.
 The function is deliberately flexible: by changing \code{fit_fun} and \code{fit_args},
 users can fit models other than logistic regression, provided the fitted model
 supports \code{\link[stats:coef]{stats::coef()}} and, ideally, \code{\link[stats:vcov]{stats::vcov()}}.
+
+By default, \code{permutation_missing = "fixed"} keeps the analysis dyad set fixed
+across all permutations. This is recommended for comparability with
+\code{sna::netlogit()} and for stable permutation-based standard errors. The older
+behaviour can be recovered with \code{permutation_missing = "dynamic"}.
 }
 \examples{
 \dontrun{
@@ -91,10 +104,15 @@ mat <- matrix(rbinom(100, 1, 0.2), 10, 10)
 diag(mat) <- 0
 net <- network::network(mat, directed = TRUE)
 
-fit <- qapreg(net, y ~ i + j, reps = 50, verbose = FALSE)
+fit <- qapreg(
+  net,
+  y ~ i + j,
+  reps = 50,
+  permutation_missing = "fixed",
+  verbose = FALSE
+)
 print(fit)
 }
-
 }
 \seealso{
 \code{\link[=qaplogit]{qaplogit()}}, \code{\link[=qap_dyads]{qap_dyads()}}, \code{\link[=compare_netlogit]{compare_netlogit()}}
